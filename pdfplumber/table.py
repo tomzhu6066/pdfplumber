@@ -336,6 +336,7 @@ class Table(object):
             max(map(itemgetter(2), cells)),
             max(map(itemgetter(3), cells)),
         )
+        self.used_chars = []
 
     @property
     def rows(self):
@@ -347,6 +348,9 @@ class Table(object):
             row = Row([ xdict.get(x) for x in xs ])
             rows.append(row)
         return rows
+
+    def get_used_chars(self):
+        return self.used_chars
 
     def extract(self,
         x_tolerance=utils.DEFAULT_X_TOLERANCE,
@@ -378,6 +382,7 @@ class Table(object):
                         if char_in_bbox(char, cell) ]
 
                     if len(cell_chars):
+                        self.used_chars += cell_chars
                         cell_text = utils.extract_text(cell_chars,
                             x_tolerance=x_tolerance,
                             y_tolerance=y_tolerance).strip()

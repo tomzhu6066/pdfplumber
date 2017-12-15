@@ -118,8 +118,13 @@ class Page(Container):
 
             if objects.get(kind) == None:
                 objects[kind] = []
+                
+            # connect pdfminer obj to pdfplumber objects
+            attr['pdfminer_obj'] = obj
+            
             objects[kind].append(attr)
 
+            
             if hasattr(obj, "_objs"):
                 for child in obj._objs:
                     process_object(child)
