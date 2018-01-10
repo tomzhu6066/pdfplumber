@@ -9,73 +9,6 @@ import re
 lt_pat = re.compile(r"^LT")
 
 
-class PageElement(object):
-    def to_html(self):
-        return
-
-
-class PETable(PageElement):
-    def __init__(self, table, extracted_rows, used_chars):
-        self.table = table
-        self.extracted_rows = extracted_rows
-        self.used_chars = used_chars
-
-    @property
-    def html(self):
-        output = '<table>'
-        for row in self.extracted_rows:
-            output += '<tr>'
-            for col in row:
-                output += '<td>{}</td>'.format(col)
-            output += '</tr>'
-        output += '</table>'
-        return output
-
-
-class PEParagraph(PageElement):
-    x_tolerance = 0
-
-    def __init__(self, line_chars):
-        self.line_chars = line_chars
-
-    @property
-    def html(self):
-        line = utils.collate_line(self.line_chars, self.x_tolerance)
-        return '<p>{}</p>'.format(line)
-
-
-class PEParagraphGroup(PageElement):
-    y_tolerance = 0
-
-    def __init__(self, chars):
-        self.chars = chars
-
-    @property
-    def html(self):
-        chars = utils.to_list(self.chars)
-        doctop_clusters = utils.cluster_objects(chars, "doctop", self.y_tolerance)
-
-        output = []
-        for line_chars in doctop_clusters:
-            output.append(PEParagraph(line_chars).html)
-        return ''.join(output)
-
-
-class PEPage(PageElement):
-    def __init__(self, page_elements):
-        self.page_elements = page_elements
-
-    def get_header(self):
-        return '<html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head><body>'
-
-    def get_footer(self):
-        return '</body></html>'
-
-    @property
-    def html(self):
-        return self.get_header() + ''.join([pe.html for pe in self.page_elements]) + self.get_footer()
-
-
 class Page(Container):
     cached_properties = Container.cached_properties + [ "_layout" ]
     is_original = True
@@ -200,6 +133,9 @@ class Page(Container):
             if hasattr(obj, "_objs"):
                 for child in obj._objs:
                     process_object(child)
+
+        from pdfminer.layout import LTChar
+        x = [_ for _ in self.layout._objs if not isinstance(_, LTChar)]
         
         for obj in self.layout._objs:
             process_object(obj)
@@ -230,47 +166,6 @@ class Page(Container):
         return utils.extract_text(self.chars,
             x_tolerance=x_tolerance,
             y_tolerance=y_tolerance)
-
-    def extract_all(self):
-        tables = self.find_tables({})
-
-        extracted_tables = []
-        for table in tables:
-            extracted_tb = table.extract()
-            used_char_objs = table.get_used_chars()
-            extracted_tables.append((table, extracted_tb, used_char_objs))
-
-        chars_tables_map = dict()
-        for table, extracted_tb, used_char_objs in extracted_tables:
-            for char in used_char_objs:
-                chars_tables_map[char['unique_id']] = (table, extracted_tb, used_char_objs)
-
-        page_elements = []
-        new_char_group = []
-        table_collected = []
-
-        from copy import deepcopy
-        chars = deepcopy(self.chars)
-
-        for i, char in enumerate(chars):
-            char_id = char['unique_id']
-            if char_id in chars_tables_map:
-                if table not in table_collected:
-                    page_elements.append(PEParagraphGroup(new_char_group))
-                    new_char_group = []
-
-                    table, extracted_tb, used_char_objs = chars_tables_map[char_id]
-
-                    page_elements.append(PETable(table, extracted_tb, used_char_objs))
-                    table_collected.append(table)
-            else:
-                new_char_group.append(char)
-
-            if i == len(chars) - 1:
-                page_elements.append(PEParagraphGroup(new_char_group))
-                new_char_group = []
-
-        return PEPage(page_elements)
 
     def extract_words(self,
         x_tolerance=utils.DEFAULT_X_TOLERANCE,
